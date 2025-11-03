@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Onde estou? — IP + Geolocation</title>
+    <style>
+         :root {
+            --bg1: #0b1020;
+            --bg2: #0f2233;
+            --neon: #00f0ff;
+            --accent: #8a2be2;
+            --card: rgba(255, 255, 255, 0.04);
+            --glass: rgba(255, 255, 255, 0.03);
+        }
+        
+        * {
+            box-sizing: border-box
+        }
+        
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, system-ui, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+            color: #e6fbff;
+            background: linear-gradient(135deg, var(--bg1), var(--bg2));
+            -webkit-font-smoothing: antialiased
+        }
+        
+        main.card {
+            width: min(980px, 94%);
+            margin: 28px auto;
+            padding: 22px;
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 240, 255, 0.03) inset;
+            border: 1px solid rgba(0, 255, 255, 0.06);
+        }
+        
+        h1 {
+            margin: 6px 0 14px;
+            font-size: 1.8rem;
+            color: var(--neon);
+            text-shadow: 0 2px 8px rgba(0, 240, 255, 0.08)
+        }
+        
+        .panel {
+            padding: 14px;
+            margin: 12px 0;
+            border-radius: 10px;
+            background: var(--glass);
+            border: 1px solid rgba(255, 255, 255, 0.02)
+        }
+        
+        .panel h2 {
+            margin: 0 0 8px;
+            font-size: 1.05rem;
+            color: #dffaff
+        }
+        
+        .hint {
+            font-size: 0.86rem;
+            color: #9feff5;
+            margin: 6px 0
+        }
+        
+        .btn {
+            background: linear-gradient(90deg, var(--neon), var(--accent));
+            color: #022029;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 6px 18px rgba(0, 240, 255, 0.06);
+        }
+        
+        .btn:active {
+            transform: translateY(1px)
+        }
+        
+        .result {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.25);
+            color: #eaffff;
+            font-size: 0.95rem;
+            line-height: 1.4
+        }
+        
+        .mapframe {
+            width: 100%;
+            height: 360px;
+            border: 1px solid rgba(0, 255, 255, 0.06);
+            border-radius: 8px;
+            margin-top: 10px
+        }
+        
+        .hidden {
+            display: none
+        }
+        
+        footer {
+            margin-top: 12px;
+            color: #9feff5;
+            font-size: 0.85rem
+        }
+        
+        code {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 2px 6px;
+            border-radius: 6px;
+            color: #bff
+        }
+        
+        a.link {
+            color: var(--neon);
+            text-decoration: underline
+        }
+        
+        @media (max-width:560px) {
+            h1 {
+                font-size: 1.3rem
+            }
+            .mapframe {
+                height: 240px
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="card" role="main">
+        <h1>Onde estou? 🔎 Criado pelo @_elias_.zh14</h1>
+
+        <section id="ip-section" class="panel">
+            <h2>Detecção por IP (aproximado)</h2>
+            <button id="check-ip" class="btn">Verificar pelo IP</button>
+            <div id="ip-result" class="result" aria-live="polite"></div>
+        </section>
+
+        <section id="geo-section" class="panel">
+            <h2>Detecção via Navegador (precisa de permissão)</h2>
+            <p class="hint">Funciona em <code>localhost</code> ou em páginas seguras (HTTPS). O navegador pedirá permissão ao usuário.</p>
+            <button id="get-geo" class="btn">Pedir localização ao navegador</button>
+            <div id="geo-result" class="result" aria-live="polite"></div>
+        </section>
+
+        <section id="map-section" class="panel hidden" aria-hidden="true">
+            <h2>Mapa</h2>
+            <div id="map-link" class="result"></div>
+            <iframe id="map-iframe" class="mapframe" sandbox="allow-scripts allow-same-origin"></iframe>
+        </section>
+
+        <section class="panel">
+            <h2>Privacidade & limites</h2>
+            <ul>
+                <li>Não coletamos senhas nem credenciais (isso seria ilegal).</li>
+                <li>IP fornece posição aproximada (às vezes só país/região).</li>
+                <li>Geolocation do navegador só funciona se o usuário permitir e em conexão segura.</li>
+                <li>instagram do criador @_elias_.zh14</li>
+            </ul>
+        </section>
+
+        <footer>
+            Dica: para testar a Geolocation localmente, a forma mais fácil é abrir um servidor simples (ex.: <code>python -m http.server 8000</code>) e abrir <code>http://localhost:8000/localizador.html</code> no navegador.
+        </footer>
+    </main>
+
+    <script>
+        // Elementos
+        const checkIpBtn = document.getElementById('check-ip');
+        const ipResult = document.getElementById('ip-result');
+        const getGeoBtn = document.getElementById('get-geo');
+        const geoResult = document.getElementById('geo-result');
+        const mapSection = document.getElementById('map-section');
+        const mapIframe = document.getElementById('map-iframe');
+        const mapLinkDiv = document.getElementById('map-link');
+
+        mapSection.classList.add('hidden');
+        mapSection.setAttribute('aria-hidden', 'true');
+
+        // Escapar HTML básico
+        function escapeHtml(s) {
+            if (!s && s !== 0) return '';
+            return String(s).replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[m];
+            });
+        }
+
+        // ----- Detectar por IP (usa ipapi.co) -----
+        async function detectByIP() {
+            ipResult.textContent = 'A carregar...';
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                if (!res.ok) throw new Error('API de IP respondeu com erro.');
+                const data = await res.json();
+                ipResult.innerHTML = `
+          <strong>IP:</strong> ${escapeHtml(data.ip || '—')}<br>
+          <strong>País:</strong> ${escapeHtml(data.country_name || '—')}<br>
+          <strong>Região / Estado:</strong> ${escapeHtml(data.region || '—')}<br>
+          <strong>Cidade:</strong> ${escapeHtml(data.city || '—')}<br>
+          <strong>Latitude / Longitude (estimado):</strong> ${data.latitude || '—'} , ${data.longitude || '—'}<br>
+          <strong>ISP / Org:</strong> ${escapeHtml(data.org || '—')}
+        `;
+                if (data.latitude && data.longitude) {
+                    showMap(data.latitude, data.longitude, `Local (estimado por IP): ${data.city || ''}, ${data.country_name || ''}`);
+                }
+            } catch (err) {
+                console.error(err);
+                ipResult.textContent = 'Não foi possível obter dados por IP: ' + err.message;
+            }
+        }
+
+        // ----- Pedir Geolocation do navegador -----
+        function requestBrowserGeo() {
+            geoResult.textContent = 'Pedindo permissão ao navegador...';
+            if (!('geolocation' in navigator)) {
+                geoResult.textContent = 'Geolocation não suportado neste navegador.';
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(async(pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                geoResult.innerHTML = `
+          <strong>Latitude:</strong> ${lat}<br>
+          <strong>Longitude:</strong> ${lon}<br>
+          <strong>Precisão (metros):</strong> ${pos.coords.accuracy}
+        `;
+                // reverse geocode via Nominatim (OpenStreetMap)
+                try {
+                    // Nominatim tem regras de uso. Aqui usamos o endpoint público para demonstração.
+                    const nomRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+                    if (nomRes.ok) {
+                        const nom = await nomRes.json();
+                        const address = nom.address || {};
+                        const display = nom.display_name || '';
+                        geoResult.innerHTML += `<br><strong>Endereço (estimado):</strong> ${escapeHtml(display)}`;
+                        const parts = [
+                            address.road, address.neighbourhood || address.suburb, address.city || address.town || address.village,
+                            address.state, address.postcode, address.country
+                        ].filter(Boolean);
+                        if (parts.length) geoResult.innerHTML += `<br><strong>Partes:</strong> ${escapeHtml(parts.join(' • '))}`;
+                    } else {
+                        geoResult.innerHTML += `<br>Reverse geocoding indisponível (Nominatim retornou erro).`;
+                    }
+                } catch (e) {
+                    geoResult.innerHTML += `<br>Erro no reverse geocoding: ${e.message}`;
+                }
+                showMap(lat, lon, 'Local obtido pelo navegador (mais preciso)');
+            }, (err) => {
+                geoResult.textContent = `Permissão negada ou erro: ${err.message}`;
+            }, {
+                enableHighAccuracy: true,
+                timeout: 20000,
+                maximumAge: 0
+            });
+        }
+
+        // ----- Mostrar mapa OpenStreetMap -----
+        function showMap(lat, lon, label = '') {
+            mapSection.classList.remove('hidden');
+            mapSection.setAttribute('aria-hidden', 'false');
+            const zoom = 16;
+            // Constrói bbox pequena ao redor do ponto para o iframe
+            const latN = Number(lat) + 0.01;
+            const latS = Number(lat) - 0.01;
+            const lonE = Number(lon) + 0.01;
+            const lonW = Number(lon) - 0.01;
+            const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lonW}%2C${latS}%2C${lonE}%2C${latN}&layer=mapnik&marker=${lat}%2C${lon}`;
+            mapIframe.src = osmUrl;
+            mapLinkDiv.innerHTML = `<a class="link" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lon)}#map=${zoom}/${lat}/${lon}">Abrir em OpenStreetMap (nova aba)</a><div style="margin-top:6px;color:#aef9ff">${escapeHtml(label)}</div>`;
+            // rolar para mapa (útil em telas pequenas)
+            mapSection.scrollIntoView({
+                behavior: 'smooth'
+            });
+        }
+
+        // Eventos
+        checkIpBtn.addEventListener('click', detectByIP);
+        getGeoBtn.addEventListener('click', requestBrowserGeo);
+
+        // opcional: detectar IP ao abrir
+        // detectByIP();
+    </script>
+</body>
+
+</html>
